@@ -1,0 +1,49 @@
+apiVersion: carto.run/v1alpha1
+kind: Workload
+metadata:
+  name: computer-vision-inferencing-app
+  labels:
+    app.kubernetes.io/part-of: openvino_object_detection
+    apps.tanzu.vmware.com/workload-type: server
+    apps.tanzu.vmware.com/has-tests: "true"
+spec:
+  params:
+    - name: gitops_server_address
+      value: ssh://git@github.com
+    - name: gitops_repository_owner
+      value: mwright-pivotal
+    - name: gitops_repository_name
+      value: openvino_object_detection
+    - name: gitops_branch
+      value: "rmq-streams"
+    - name: testing_pipeline_matching_labels
+      value:
+        apps.tanzu.vmware.com/pipeline: test-python
+    - name: clusterBuilder
+      value: openvino-builder
+  source:
+    git:
+      url: ssh://git@github.com/mwright-pivotal/openvino_object_detection
+      ref:
+        branch: rmq-streams
+  env:
+    - name: VIDEO_INPUT
+      value: "starwars-sample.mp4"
+    - name: ACCELERATION_DEVICE
+      value: "CPU"
+    - name: INFERENCING_MODEL
+      value: custom_models/saved_model.xml
+    - name: LABELS_FILE
+      value: starwars_labels.txt
+    - name: AMQP_HOSTNAME
+      valueFrom:
+        secretKeyRef:
+          name: edge-inferencing-events-default-user
+          key: host
+          optional: false
+  serviceClaims:
+  - name: rmq
+    ref:
+      apiVersion: services.apps.tanzu.vmware.com/v1alpha1
+      kind: ResourceClaim
+      name: edge-inferencing-events

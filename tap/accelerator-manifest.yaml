@@ -1,0 +1,12 @@
+apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
+kind: Accelerator
+metadata:
+  name: edge-computer-vision
+  namespace: accelerator-system
+spec:
+  git:
+    gitImplementation: go-git
+    ref:
+      branch: rmq-streams
+    subPath: tap
+    url: https://github.com/mwright-pivotal/openvino_object_detection

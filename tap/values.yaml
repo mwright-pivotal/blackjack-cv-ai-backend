@@ -1,0 +1,6 @@
+#@data/values-schema
+---
+tap:
+  credentials:
+    registry:
+      host: harbor.services.edge.wrightcode.io:9443

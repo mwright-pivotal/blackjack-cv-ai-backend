@@ -1,0 +1,18 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: openvino_object_detection
+  description: Edge Native Computer Vision Application Optimized for VMWare Device Edge
+  tags:
+    - app-accelerator
+    - rabbitmq
+    - python
+    - openvino
+    - computer-vision
+    - edge
+  annotations:
+    'backstage.io/kubernetes-label-selector': 'app.kubernetes.io/part-of=object-detection'
+spec:
+  type: service
+  lifecycle: experimental
+  owner: default-team
