@@ -12,6 +12,17 @@ import sys
 from notebook_utils import download_file, VideoPlayer
 import torch
 from argparse import ArgumentParser, SUPPRESS
+import collections
+import time
+from IPython import display
+import pika, os
+from ultralytics import YOLO
+from openvino.runtime import Core, Model
+
+global observed_classes
+observed_classes = { }
+models_dir = Path('.')
+models_dir.mkdir(exist_ok=True)
 
 def plot_one_box(box:np.ndarray, img:np.ndarray, color:Tuple[int, int, int] = None, mask:np.ndarray = None, label:str = None, line_thickness:int = 5):
     """
@@ -75,19 +86,8 @@ def build_args():
     args.add_argument('-m', '--model', required=True,
                       help='Required. OpenVino Model filename ')
     args.add_argument('--publish_sysout', help="Optional. Don't show output.", action='store_true')
+    args.add_argument('--publish_rmq', help="Optional. Don't publish to rmq stream", action='store_true')
     return parser
-
-models_dir = Path('.')
-models_dir.mkdir(exist_ok=True)
-
-from ultralytics import YOLO
-
-DET_MODEL_NAME = "card-detect-0728"
-SEG_MODEL_NAME = "card-segment-08823"
-
-det_model = YOLO(models_dir / f'{DET_MODEL_NAME}.pt')
-label_map = det_model.model.names
-print(label_map)
 
 def letterbox(img: np.ndarray, new_shape:Tuple[int, int] = (640, 640), color:Tuple[int, int, int] = (114, 114, 114), auto:bool = False, scale_fill:bool = False, scaleup:bool = False, stride:int = 32):
     """
@@ -238,26 +238,6 @@ def postprocess(
         results.append({"det": pred[:, :6].numpy(), "segment": segments})
     return results
 
-from openvino.runtime import Core, Model
-
-core = Core()
-det_model_path = models_dir / f"{DET_MODEL_NAME}_openvino_model/{DET_MODEL_NAME}.xml"
-
-seg_model_path = models_dir / f"{SEG_MODEL_NAME}_openvino_model/{SEG_MODEL_NAME}.xml"
-
-det_ov_model = core.read_model(det_model_path)
-seg_ov_model = core.read_model(seg_model_path)
-#det_ov_model = core.read_model('./nvidia_results/best.xml')
-
-device = "CPU"  # "GPU"
-if device != "CPU":
-    det_ov_model.reshape({0: [1, 3, 640, 640]})
-    available_devices = core.available_devices
-    print(available_devices)
-    
-det_compiled_model = core.compile_model(det_ov_model, device)
-seg_compiled_model = core.compile_model(seg_ov_model, device)
-
 def detect(image:np.ndarray, model:Model):
     """
     OpenVINO YOLOv8 model inference function. Preprocess image, runs model inference and postprocess results using NMS.
@@ -303,11 +283,6 @@ def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict):
         
     return
 
-import collections
-import time
-from IPython import display
-import pika, os
-
 def setup_rabbit():
     rabbitmq_hostname = os.environ.get(
         'AMQP_HOSTNAME', 'localhost'
@@ -341,11 +316,9 @@ def setup_rabbit():
         durable=True,
     arguments={"x-queue-type": "stream", "x-max-age": "1m"}
     )
+    return channel
 
-global observed_classes
-observed_classes = { }
-
-def stream_results(results:Dict, source_image:np.ndarray, label_map:Dict):
+def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:Dict):
     """
     Helper function for drawing bounding boxes on image
     Parameters:
@@ -366,7 +339,7 @@ def stream_results(results:Dict, source_image:np.ndarray, label_map:Dict):
             #reset the classes observed previously...
             print('inferencing diagnostics - ' + str(observed_classes))
             observed_classes = { 'NONE': 0 }
-            channel.basic_publish(
+            rmqChannel.basic_publish(
                 exchange='',
                 routing_key='inferencing_stream',
                 body=messageBody
@@ -386,7 +359,7 @@ def stream_results(results:Dict, source_image:np.ndarray, label_map:Dict):
         if not (object_class in observed_classes.keys() and conf.item() < float(observed_classes[object_class])):
             messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
                 + '", "y1": "' + str(xyxy[1].item()) + '" }'
-            channel.basic_publish(
+            rmqChannel.basic_publish(
                 exchange='',
                 routing_key='inferencing_stream',
                 body=messageBody
@@ -396,22 +369,44 @@ def stream_results(results:Dict, source_image:np.ndarray, label_map:Dict):
     return
 
 # Main processing function to run object detection.
-def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frames=0, model=det_model, device=device):
+def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frames=0):
     player = None
     args = build_args().parse_args()
     publishSysout = args.publish_sysout
-    publishRMQ = False
+    publishRMQ = args.publish_rmq
     publishDisplay = False
     robotDance = False
-    
+    rmqChannel = setup_rabbit() if publishRMQ else None
     mc = None
     
     device = args.device
-    
+
+    DET_MODEL_NAME = "card-detect-0728"
+    SEG_MODEL_NAME = "card-segment-08823"
+
+    det_model = YOLO(models_dir / f'{DET_MODEL_NAME}.pt')
+    label_map = det_model.model.names
+    print(label_map)
+
+    from openvino.runtime import Core, Model
+
+    core = Core()
+    det_model_path = models_dir / f"{DET_MODEL_NAME}_openvino_model/{DET_MODEL_NAME}.xml"
+
+    seg_model_path = models_dir / f"{SEG_MODEL_NAME}_openvino_model/{SEG_MODEL_NAME}.xml"
+
+    det_ov_model = core.read_model(det_model_path)
+    #seg_ov_model = core.read_model(seg_model_path)
+    #det_ov_model = core.read_model('./nvidia_results/best.xml')
     if device != "CPU":
-        model.reshape({0: [1, 3, 640, 640]})
+        det_ov_model.reshape({0: [1, 3, 640, 640]})
+        available_devices = core.available_devices
+        print(available_devices)
         
-    compiled_model = core.compile_model(model, device)
+    if device != "CPU":
+        det_ov_model.reshape({0: [1, 3, 640, 640]})
+        
+    compiled_model = core.compile_model(det_ov_model, device)
     try:
         # Create a video player to play with target fps.
         player = VideoPlayer(
@@ -453,7 +448,7 @@ def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frame
             stop_time = time.time()
             
             if publishRMQ:
-                stream_results(detections, input_image, label_map)
+                stream_results(rmqChannel, detections, input_image, label_map)
                 
             if publishSysout:
                 sysout_results(detections, input_image, label_map)
@@ -525,7 +520,7 @@ def main():
         success, image = cap.read()
         print(success)
         
-    run_object_detection(source=VIDEO_SOURCE, flip=False, use_popup=False, model=det_ov_model, device="AUTO")
+    run_object_detection(source=VIDEO_SOURCE, flip=False, use_popup=False)
     
 if __name__ == '__main__':
     sys.exit(main() or 0)
