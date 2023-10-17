@@ -38,7 +38,7 @@ spec:
               export PATH=/home/cnb/miniconda3/bin:$PATH
 
               conda init bash
-              source ~/miniconda3/etc/profile.d/conda.sh
+              . ~/miniconda3/etc/profile.d/conda.sh
 
               conda env create -f environment.yml
               conda activate py39
