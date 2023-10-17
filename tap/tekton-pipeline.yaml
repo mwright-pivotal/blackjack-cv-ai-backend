@@ -27,7 +27,7 @@ spec:
         steps:
           - name: test
             #image: continuumio/miniconda3
-            image: openvino/ubuntu22_runtime:latest
+            image: openvino/ubuntu22_dev:latest
             script: |-
               set -ex
               cd `mktemp -d`
