@@ -19,13 +19,13 @@ spec:
     - name: testing_pipeline_matching_labels
       value:
         apps.tanzu.vmware.com/pipeline: test-python
-    - name: clusterBuilder
-      value: openvino-builder
+    - name: clusterStack
+      value: cv-stack
   source:
     git:
-      url: ssh://git@github.com/mwright-pivotal/openvino_object_detection
+      url: ssh://git@github.com/mwright-pivotal/blackjack-cv-ai-backend
       ref:
-        branch: rmq-streams
+        branch: master
   env:
     - name: VIDEO_INPUT
       value: "starwars-sample.mp4"

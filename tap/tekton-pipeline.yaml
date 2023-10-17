@@ -26,15 +26,19 @@ spec:
           - name: source-sub-path
         steps:
           - name: test
-            image: openvino/openvino_tensorflow_ubuntu18_runtime:latest
+            #image: continuumio/miniconda3
+            image: openvino/ubuntu22_runtime:latest
             script: |-
               set -ex
               cd `mktemp -d`
               wget -qO- $(params.source-url) | tar xvz -m
 
-              pip3 install --upgrade pip
-              pip3 install pytest
-              pip3 install -r requirements.txt
+              conda init bash
+              . /root/.bashrc
+              conda env create -f environment.yml
+              conda activate py39
+              python -m pip install --upgrade pip
+              python -m pip install pytest
 
               export PATH=/home/openvino/.local/bin:$PATH
               pytest
