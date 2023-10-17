@@ -38,7 +38,7 @@ spec:
               export PATH=/home/cnb/miniconda3/bin:$PATH
 
               conda init bash
-              . .bashrc
+              . /home/cnb/.bashrc
               conda env create -f environment.yml
               conda activate py39
               python -m pip install --upgrade pip
