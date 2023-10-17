@@ -36,7 +36,6 @@ spec:
               wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
               sh Miniconda3-latest-Linux-x86_64.sh -b -p /home/cnb/miniconda3
               export PATH=/home/cnb/miniconda3/bin:$PATH
-              . /root/.bashrc
 
               conda init bash
               conda env create -f environment.yml
