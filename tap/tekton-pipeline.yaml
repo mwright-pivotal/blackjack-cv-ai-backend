@@ -41,7 +41,7 @@ spec:
               . ~/miniconda3/etc/profile.d/conda.sh
 
               conda env create -f environment.yml
-              conda activate py39
+              conda activate blackjack
               python -m pip install --upgrade pip
               python -m pip install pytest
 
