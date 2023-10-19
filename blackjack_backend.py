@@ -403,9 +403,6 @@ def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frame
         available_devices = core.available_devices
         print(available_devices)
         
-    if device != "CPU":
-        det_ov_model.reshape({0: [1, 3, 640, 640]})
-        
     compiled_model = core.compile_model(det_ov_model, device)
     try:
         # Create a video player to play with target fps.
