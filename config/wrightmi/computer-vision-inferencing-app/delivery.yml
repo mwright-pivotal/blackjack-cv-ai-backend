@@ -45,7 +45,7 @@ spec:
           value: custom_models/saved_model.xml
         - name: LABELS_FILE
           value: starwars_labels.txt
-        image: harbor.eqix.vmwedge.com/apps/computer-vision-inferencing-app-wrightmi@sha256:53d726a7499fb40f1efd18b0ac10b8a8d7184f5de28f14982210e6f641800bb1
+        image: harbor.eqix.vmwedge.com/apps/computer-vision-inferencing-app-wrightmi@sha256:0c10ae10d88a1a9359df2c151cdc1a063710003b49e3a1ee15262b173ecfa1fd
         name: workload
         resources: {}
         securityContext:
