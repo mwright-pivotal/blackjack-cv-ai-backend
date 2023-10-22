@@ -369,7 +369,7 @@ def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:
     return
 
 # Main processing function to run object detection.
-def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frames=0):
+def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     player = None
     args = build_args().parse_args()
     publishSysout = args.publish_sysout
@@ -380,6 +380,7 @@ def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frame
     mc = None
     
     device = args.device
+    source = args.input
 
     DET_MODEL_NAME = "card-detect-0728"
     SEG_MODEL_NAME = "card-segment-08823"
@@ -504,20 +505,7 @@ def run_object_detection(source=0, flip=False, use_popup=False, skip_first_frame
             cv2.destroyAllWindows()
             
 def main():
-    WEBCAM_INFERENCE = False
-
-    if WEBCAM_INFERENCE:
-        # VIDEO_SOURCE = 0  # Webcam
-        VIDEO_SOURCE = 'rtsp://root:VMwareEdge1!@192.168.8.180/axis-media/media.amp?fps=1'
-    else:
-        VIDEO_SOURCE = './cards-sample.m4v'
-        print(os.path.exists(VIDEO_SOURCE))
-        cap = cv2.VideoCapture(VIDEO_SOURCE)
-        print(cap.isOpened())
-        success, image = cap.read()
-        print(success)
-        
-    run_object_detection(source=VIDEO_SOURCE, flip=False, use_popup=False)
+    run_object_detection(flip=False, use_popup=False)
     
 if __name__ == '__main__':
     sys.exit(main() or 0)
