@@ -21,8 +21,6 @@ from openvino.runtime import Core, Model
 
 global observed_classes
 observed_classes = { }
-models_dir = Path('.')
-models_dir.mkdir(exist_ok=True)
 
 def plot_one_box(box:np.ndarray, img:np.ndarray, color:Tuple[int, int, int] = None, mask:np.ndarray = None, label:str = None, line_thickness:int = 5):
     """
@@ -382,19 +380,19 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     device = args.device
     source = args.input
 
-    DET_MODEL_NAME = "card-detect-0728"
-    SEG_MODEL_NAME = "card-segment-08823"
+    DET_MODEL_NAME = args.model
+    #SEG_MODEL_NAME = "card-segment-08823"
 
-    det_model = YOLO(models_dir / f'{DET_MODEL_NAME}.pt')
+    det_model = YOLO(f'./models/card-detect-0728.pt')
     label_map = det_model.model.names
     print(label_map)
 
     from openvino.runtime import Core, Model
 
     core = Core()
-    det_model_path = models_dir / f"{DET_MODEL_NAME}_openvino_model/{DET_MODEL_NAME}.xml"
+    det_model_path = f"{DET_MODEL_NAME}.xml"
 
-    seg_model_path = models_dir / f"{SEG_MODEL_NAME}_openvino_model/{SEG_MODEL_NAME}.xml"
+    #seg_model_path = models_dir / f"{SEG_MODEL_NAME}_openvino_model/{SEG_MODEL_NAME}.xml"
 
     det_ov_model = core.read_model(det_model_path)
     #seg_ov_model = core.read_model(seg_model_path)

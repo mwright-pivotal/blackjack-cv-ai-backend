@@ -108,15 +108,26 @@ def test_answer():
     # Get the results.
     input_image = np.array(image)
     
-    model = load_model("card-detect-0728_openvino_model/card-detect-0728.xml")
+    model = load_model("models/card-detect-0728.xml")
+    quantized_mode = load_model("models/quantized_cards_detect-1023.xml")
     start_time = time.time()
+    print(start_time)
     # model expects RGB image, while video capturing in BGR
     detections = blackjack.detect(input_image[:, :, ::-1], model)[0]
     stop_time = time.time()
+    print(stop_time)
     boxes = detections["det"]
     h, w = input_image.shape[:2]
     for idx, (*xyxy, conf, lbl) in enumerate(boxes):
         print(int(lbl))
+
+
+    start_time = time.time()
+    print(start_time)
+    # model expects RGB image, while video capturing in BGR
+    detections = blackjack.detect(input_image[:, :, ::-1], quantized_mode)[0]
+    stop_time = time.time()
+    print(stop_time)
 
     #15 is 4 of Spades
     assert int(lbl)==15
