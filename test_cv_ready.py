@@ -119,5 +119,4 @@ def test_answer():
         print(int(lbl))
 
     #15 is 4 of Spades
-    #assert int(lbl)==15
-    assert False
+    assert int(lbl)==15
