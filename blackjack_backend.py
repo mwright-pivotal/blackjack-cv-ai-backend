@@ -13,7 +13,10 @@ from notebook_utils import download_file, VideoPlayer
 import torch
 from argparse import ArgumentParser, SUPPRESS
 import collections
+from amqpconnection import AmqpConnection
+from threading import Thread
 import time
+import random
 from IPython import display
 import pika, os
 from ultralytics import YOLO
@@ -281,7 +284,7 @@ def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict):
         
     return
 
-def setup_rabbit():
+def setup_rabbit_orig():
     rabbitmq_hostname = os.environ.get(
         'AMQP_HOSTNAME', 'localhost'
     )
@@ -310,13 +313,32 @@ def setup_rabbit():
 
     # Declare a Stream, named test_stream
     channel.queue_declare(
-    queue='inferencing_stream',
-        durable=True,
-    arguments={"x-queue-type": "stream", "x-max-age": "1m"}
-    )
+        queue='inferencing_stream',
+            durable=True,
+            arguments={"x-queue-type": "stream", "x-max-age": "1m"}
+        )
     return channel
 
-def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:Dict):
+def setup_rabbit():
+    rabbitmq_hostname = os.environ.get(
+        'AMQP_HOSTNAME', 'localhost'
+    )
+    rabbitmq_port = os.environ.get(
+        'AMQP_PORT', '5672'
+    )
+    rabbitmq_user = os.environ.get(
+        'AMQP_USER', 'user'
+    )
+    rabbitmq_password = os.environ.get(
+        'AMQP_PASSWORD', 'guest'
+    )
+    mq = AmqpConnection(hostname=rabbitmq_hostname,port=rabbitmq_port,username=rabbitmq_user,password=rabbitmq_password)
+    mq.connect()
+    mq.setup_queues()
+    return mq
+
+#def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:Dict):
+def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
     """
     Helper function for drawing bounding boxes on image
     Parameters:
@@ -337,11 +359,12 @@ def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:
             #reset the classes observed previously...
             print('inferencing diagnostics - ' + str(observed_classes))
             observed_classes = { 'NONE': 0 }
-            rmqChannel.basic_publish(
-                exchange='',
-                routing_key='inferencing_stream',
-                body=messageBody
-            )
+            # rmqChannel.basic_publish(
+            #     exchange='',
+            #     routing_key='inferencing_stream',
+            #     body=messageBody
+            # )
+            mq.do_async(mq.publish, payload=messageBody)
             return
         else:
             return
@@ -357,11 +380,12 @@ def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:
         if not (object_class in observed_classes.keys() and conf.item() < float(observed_classes[object_class])):
             messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
                 + '", "y1": "' + str(xyxy[1].item()) + '" }'
-            rmqChannel.basic_publish(
-                exchange='',
-                routing_key='inferencing_stream',
-                body=messageBody
-            )
+            # rmqChannel.basic_publish(
+            #     exchange='',
+            #     routing_key='inferencing_stream',
+            #     body=messageBody
+            # )
+            mq.do_async(mq.publish, payload=messageBody)
             observed_classes[object_class] = conf.item()
         
     return
@@ -374,7 +398,8 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     publishRMQ = args.publish_rmq
     publishDisplay = False
     robotDance = False
-    rmqChannel = setup_rabbit() if publishRMQ else None
+    #rmqChannel = setup_rabbit() if publishRMQ else None
+    mq = setup_rabbit() if publishRMQ else None
     mc = None
     
     device = args.device
@@ -444,7 +469,7 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
             stop_time = time.time()
             
             if publishRMQ:
-                stream_results(rmqChannel, detections, input_image, label_map)
+                stream_results(mq, detections, input_image, label_map)
                 
             if publishSysout:
                 sysout_results(detections, input_image, label_map)
