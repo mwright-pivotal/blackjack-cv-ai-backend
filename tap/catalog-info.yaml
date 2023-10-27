@@ -1,7 +1,7 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: openvino_object_detection
+  name: blackjack-card-detection
   description: Edge Native Computer Vision Application Optimized for VMWare Device Edge
   tags:
     - app-accelerator
@@ -11,7 +11,7 @@ metadata:
     - computer-vision
     - edge
   annotations:
-    'backstage.io/kubernetes-label-selector': 'app.kubernetes.io/part-of=object-detection'
+    'backstage.io/kubernetes-label-selector': 'app.kubernetes.io/part-of=blackjack'
 spec:
   type: service
   lifecycle: experimental
