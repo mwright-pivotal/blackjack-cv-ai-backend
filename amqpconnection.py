@@ -31,7 +31,7 @@ class AmqpConnection:
                 durable=True,
                 arguments={"x-queue-type": "stream", "x-max-age": "1m"}
             )
-        self.channel.queue_bind('inferencing_stream', exchange='blackack', routing_key='card')
+        self.channel.queue_bind('inferencing_stream', exchange='inferencing_stream', routing_key='card')
 
     def do_async(self, callback, *args, **kwargs):
         if self.connection.is_open:
@@ -40,7 +40,7 @@ class AmqpConnection:
     def publish(self, payload):
         if self.connection.is_open and self.channel.is_open:
             self.channel.basic_publish(
-                exchange='blackack',
+                exchange='inferencing_stream',
                 routing_key='card',
                 body=payload
             )

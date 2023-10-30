@@ -471,6 +471,7 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
         prev_card_code = ''
         
         while True:
+            sys.stdout.flush()
             # Grab the frame.
             frame = player.next()
             if frame is None:
