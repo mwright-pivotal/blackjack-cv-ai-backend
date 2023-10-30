@@ -20,7 +20,8 @@ import random
 from IPython import display
 import pika, os
 from ultralytics import YOLO
-from openvino.runtime import Core, Model
+from openvino.runtime import Core, Model, serialize, Type, Layout
+from openvino.preprocess import PrePostProcessor
 
 global observed_classes
 observed_classes = { }
@@ -262,7 +263,24 @@ def detect(image:np.ndarray, model:Model):
     detections = postprocess(pred_boxes=boxes, input_hw=input_hw, orig_img=image, pred_masks=masks)
     return detections
 
-def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict):
+def detect_without_preprocess(image:np.ndarray, model:Model):
+    """
+    OpenVINO YOLOv8 model with integrated preprocessing inference function. Preprocess image, runs model inference and postprocess results using NMS.
+    Parameters:
+        image (np.ndarray): input image.
+        model (Model): OpenVINO compiled model.
+    Returns:
+        detections (np.ndarray): detected boxes in format [x1, y1, x2, y2, score, label]
+    """
+    output_layer = model.output(0)
+    img = letterbox(image)[0]
+    input_tensor = np.expand_dims(img, 0)
+    input_hw = img.shape[:2]
+    result = model(input_tensor)[output_layer]
+    detections = postprocess(result, input_hw, image)
+    return detections
+
+def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict, msg):
     """
     Helper function for drawing bounding boxes on image
     Parameters:
@@ -279,7 +297,7 @@ def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict):
         label = f'{label_map[int(lbl)]} {conf:.2f}'
         object_class = label_map[int(lbl)]
         messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
-                + '", "y1": "' + str(xyxy[1].item()) + '" }'
+                + '", "y1": "' + str(xyxy[1].item()) + '", "msg": "' + msg + '" }'
         print(messageBody)
         
     return
@@ -427,7 +445,15 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
         available_devices = core.available_devices
         print(available_devices)
         
-    compiled_model = core.compile_model(det_ov_model, device)
+    ppp = PrePostProcessor(det_ov_model)
+    ppp.input(0).tensor().set_shape([1, 640, 640, 3]).set_element_type(Type.u8).set_layout(Layout('NHWC'))
+    ppp.input(0).preprocess().convert_element_type(Type.f32).convert_layout(Layout('NCHW')).scale([255., 255., 255.])
+    print(ppp)
+
+    quantized_model_with_preprocess = ppp.build()
+    #serialize(quantized_model_with_preprocess, str(f"{DET_MODEL_NAME}_with_preprocess.xml"))
+    compiled_model = core.compile_model(quantized_model_with_preprocess, device)
+
     try:
         # Create a video player to play with target fps.
         player = VideoPlayer(
@@ -465,31 +491,32 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
            
             start_time = time.time()
             # model expects RGB image, while video capturing in BGR
-            detections = detect(input_image[:, :, ::-1], compiled_model)[0]
+            # detections = detect(input_image[:, :, ::-1], compiled_model)[0]
+            detections = detect_without_preprocess(input_image, compiled_model)[0]
             stop_time = time.time()
             
+            processing_times.append(stop_time - start_time)
+            # Use processing times from last 200 frames.
+            if len(processing_times) > 200:
+                processing_times.popleft()
+            processing_time = np.mean(processing_times) * 1000
+            fps = 1000 / processing_time
+            timings_text=f"Inference time: {processing_time:.1f}ms ({fps:.1f} FPS)"
+
             if publishRMQ:
                 stream_results(mq, detections, input_image, label_map)
                 
             if publishSysout:
-                sysout_results(detections, input_image, label_map)
+                sysout_results(detections, input_image, label_map, timings_text)
             
             if publishDisplay:
                 image_with_boxes = draw_results(detections, input_image, label_map)
                 frame = image_with_boxes
 
-                processing_times.append(stop_time - start_time)
-                # Use processing times from last 200 frames.
-                if len(processing_times) > 200:
-                    processing_times.popleft()
-
                 _, f_width = frame.shape[:2]
-                # Mean processing time [ms].
-                processing_time = np.mean(processing_times) * 1000
-                fps = 1000 / processing_time
                 cv2.putText(
                     img=frame,
-                    text=f"Inference time: {processing_time:.1f}ms ({fps:.1f} FPS)",
+                    text=timings_text,
                     org=(20, 40),
                     fontFace=cv2.FONT_HERSHEY_COMPLEX,
                     fontScale=f_width / 1000,
