@@ -12,11 +12,12 @@ class AmqpConnection:
         self.connection = None
         self.channel = None
 
-    def connect(self, connection_name='Neat-App'):
+    def connect(self, connection_name='blackjack-backend'):
         print('Attempting to connect to', self.hostname)
         params = pika.ConnectionParameters(
             host=self.hostname,
             port=self.port,
+            virtual_host="/edge-vhost"
             credentials=pika.PlainCredentials(self.username, self.password),
             client_properties={'connection_name': connection_name})
         self.connection = pika.BlockingConnection(parameters=params)
