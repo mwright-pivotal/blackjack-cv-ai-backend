@@ -24,14 +24,13 @@ class AmqpConnection:
         print('Connected Successfully to', self.hostname)
 
     def setup_queues(self):
-        self.channel.exchange_declare('blackack', exchange_type='direct')
 
         self.channel.queue_declare(
             queue='inferencing_stream',
                 durable=True,
                 arguments={"x-queue-type": "stream", "x-max-age": "1m"}
             )
-        self.channel.queue_bind('inferencing_stream', exchange='inferencing_stream', routing_key='card')
+        self.channel.queue_bind('inferencing_stream', exchange='cv-exchange')
 
     def do_async(self, callback, *args, **kwargs):
         if self.connection.is_open:
@@ -40,8 +39,7 @@ class AmqpConnection:
     def publish(self, payload):
         if self.connection.is_open and self.channel.is_open:
             self.channel.basic_publish(
-                exchange='inferencing_stream',
-                routing_key='card',
+                exchange='cv-exchange',
                 body=payload
             )
 
