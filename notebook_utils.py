@@ -14,8 +14,6 @@ from typing import List, NamedTuple, Optional, Tuple
 
 import numpy as np
 from openvino.runtime import Core, get_version
-from IPython.display import HTML, Image, display
-
 
 # ## Files
 #
@@ -595,9 +593,6 @@ class NotebookAlert(Exception):
         self.message = message
         self.alert_class = alert_class
         self.show_message()
-
-    def show_message(self):
-        display(HTML(f"""<div class="alert alert-{self.alert_class}">{self.message}"""))
 
 
 class DeviceNotFoundAlert(NotebookAlert):

@@ -4,20 +4,22 @@ import os
 from retry import retry
 
 class AmqpConnection:
-    def __init__(self, hostname='localhost', port=5672, username='guest', password='guest'):
+    def __init__(self, hostname='localhost', port=5672, username='guest', password='guest', vhost='/edge-vhost', exchange='cv-exchange'):
         self.hostname = hostname
         self.port = port
         self.username = username
         self.password = password
         self.connection = None
         self.channel = None
+        self.vhost = vhost
+        self.exchange = exchange
 
     def connect(self, connection_name='blackjack-backend'):
         print('Attempting to connect to', self.hostname)
         params = pika.ConnectionParameters(
             host=self.hostname,
             port=self.port,
-            virtual_host="/edge-vhost"
+            virtual_host=self.vhost,
             credentials=pika.PlainCredentials(self.username, self.password),
             client_properties={'connection_name': connection_name})
         self.connection = pika.BlockingConnection(parameters=params)
@@ -31,7 +33,8 @@ class AmqpConnection:
                 durable=True,
                 arguments={"x-queue-type": "stream", "x-max-age": "1m"}
             )
-        self.channel.queue_bind('inferencing_stream', exchange='cv-exchange')
+        if len(self.exchange) > 0:
+            self.channel.queue_bind('inferencing_stream', exchange=self.exchange)
 
     def do_async(self, callback, *args, **kwargs):
         if self.connection.is_open:

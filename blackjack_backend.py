@@ -17,7 +17,6 @@ from amqpconnection import AmqpConnection
 from threading import Thread
 import time
 import random
-from IPython import display
 import pika, os
 from ultralytics import YOLO
 from openvino.runtime import Core, Model, serialize, Type, Layout
@@ -89,6 +88,7 @@ def build_args():
                       help='Required. OpenVino Model filename ')
     args.add_argument('--publish_sysout', help="Optional. Don't show output.", action='store_true')
     args.add_argument('--publish_rmq', help="Optional. Don't publish to rmq stream", action='store_true')
+    args.add_argument('-v', '--rmq_vhost', default='/edge-vhost', help="Optional. RMQ VHost", type=str)
     return parser
 
 def letterbox(img: np.ndarray, new_shape:Tuple[int, int] = (640, 640), color:Tuple[int, int, int] = (114, 114, 114), auto:bool = False, scale_fill:bool = False, scaleup:bool = False, stride:int = 32):
@@ -302,41 +302,6 @@ def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict, msg):
         
     return
 
-def setup_rabbit_orig():
-    rabbitmq_hostname = os.environ.get(
-        'AMQP_HOSTNAME', 'localhost'
-    )
-    rabbitmq_port = os.environ.get(
-        'AMQP_PORT', '5672'
-    )
-    rabbitmq_user = os.environ.get(
-        'AMQP_USER', 'user'
-    )
-    rabbitmq_password = os.environ.get(
-        'AMQP_PASSWORD', 'guest'
-    )
-
-    print (rabbitmq_user, rabbitmq_password)
-    credentials = pika.PlainCredentials(rabbitmq_user, rabbitmq_password)
-    parameters = pika.ConnectionParameters(rabbitmq_hostname,
-                                        rabbitmq_port,
-                                        '/',
-                                        credentials)
-
-    connection = pika.BlockingConnection(parameters)
-    channel = connection.channel() # start a channel
-
-    # Delete a Stream, named test_stream
-    #channel.queue_delete(queue='inferencing_stream')
-
-    # Declare a Stream, named test_stream
-    channel.queue_declare(
-        queue='inferencing_stream',
-            durable=True,
-            arguments={"x-queue-type": "stream", "x-max-age": "1m"}
-        )
-    return channel
-
 def setup_rabbit():
     rabbitmq_hostname = os.environ.get(
         'AMQP_HOSTNAME', 'localhost'
@@ -350,7 +315,14 @@ def setup_rabbit():
     rabbitmq_password = os.environ.get(
         'AMQP_PASSWORD', 'guest'
     )
-    mq = AmqpConnection(hostname=rabbitmq_hostname,port=rabbitmq_port,username=rabbitmq_user,password=rabbitmq_password)
+    rabbitmq_vhost = os.environ.get(
+        'RMQ_VHOST', '/'
+    )
+    rabbitmq_exchange = os.environ.get(
+        'RMQ_EXCHANGE', ''
+    )
+    mq = AmqpConnection(hostname=rabbitmq_hostname,port=rabbitmq_port,username=rabbitmq_user,
+                        password=rabbitmq_password,vhost=rabbitmq_vhost,exchange=rabbitmq_exchange)
     mq.connect()
     mq.setup_queues()
     return mq
@@ -414,7 +386,6 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     args = build_args().parse_args()
     publishSysout = args.publish_sysout
     publishRMQ = args.publish_rmq
-    publishDisplay = False
     robotDance = False
     #rmqChannel = setup_rabbit() if publishRMQ else None
     mq = setup_rabbit() if publishRMQ else None
@@ -509,39 +480,7 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
                 
             if publishSysout:
                 sysout_results(detections, input_image, label_map, timings_text)
-            
-            if publishDisplay:
-                image_with_boxes = draw_results(detections, input_image, label_map)
-                frame = image_with_boxes
-
-                _, f_width = frame.shape[:2]
-                cv2.putText(
-                    img=frame,
-                    text=timings_text,
-                    org=(20, 40),
-                    fontFace=cv2.FONT_HERSHEY_COMPLEX,
-                    fontScale=f_width / 1000,
-                    color=(0, 0, 255),
-                    thickness=1,
-                    lineType=cv2.LINE_AA,
-                )
-                # Use this workaround if there is flickering.
-                if use_popup:
-                    cv2.imshow(winname=title, mat=frame)
-                    key = cv2.waitKey(1)
-                    # escape = 27
-                    if key == 27:
-                        break
-                else:
-                    # Encode numpy array to jpg.
-                    _, encoded_img = cv2.imencode(
-                        ext=".jpg", img=frame, params=[cv2.IMWRITE_JPEG_QUALITY, 100]
-                    )
-                    # Create an IPython image.
-                    i = display.Image(data=encoded_img)
-                    # Display the image in this notebook.
-                    display.clear_output(wait=True)
-                    display.display(i)
+    
     # ctrl-c
     except KeyboardInterrupt:
         print("Interrupted")
