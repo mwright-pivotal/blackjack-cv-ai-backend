@@ -4,7 +4,8 @@ import os
 from retry import retry
 
 class AmqpConnection:
-    def __init__(self, hostname='localhost', port=5672, username='guest', password='guest', vhost='/edge-vhost', exchange='cv-exchange'):
+    def __init__(self, hostname='localhost', port=5672, username='guest', password='guest', 
+                 vhost='/edge-vhost', exchange='cv-exchange', queue='inferencing_stream'):
         self.hostname = hostname
         self.port = port
         self.username = username
@@ -13,6 +14,7 @@ class AmqpConnection:
         self.channel = None
         self.vhost = vhost
         self.exchange = exchange
+        self.queue = queue
 
     def connect(self, connection_name='blackjack-backend'):
         print('Attempting to connect to', self.hostname)
@@ -39,13 +41,18 @@ class AmqpConnection:
     def do_async(self, callback, *args, **kwargs):
         if self.connection.is_open:
             self.connection.add_callback_threadsafe(functools.partial(callback, *args, **kwargs))
+        else:
+            print('connection to rabbitmq not open')
 
-    def publish(self, payload):
+    def publish(self, payload, routing_key=''):
         if self.connection.is_open and self.channel.is_open:
             self.channel.basic_publish(
-                exchange='cv-exchange',
+                exchange=self.exchange,
+                routing_key=self.queue,
                 body=payload
             )
+        else:
+            print('connection not open')
 
     @retry(pika.exceptions.AMQPConnectionError, delay=1, backoff=2)
     def consume(self, on_message):

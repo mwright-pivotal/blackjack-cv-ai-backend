@@ -15,6 +15,7 @@ from argparse import ArgumentParser, SUPPRESS
 import collections
 from amqpconnection import AmqpConnection
 from threading import Thread
+from queue import Queue 
 import time
 import random
 import pika, os
@@ -327,8 +328,16 @@ def setup_rabbit():
     mq.setup_queues()
     return mq
 
+# A thread that produces data 
+def sender_thread(mq, in_q): 
+    while True: 
+        data = in_q.get() 
+        #mq.do_async(mq.publish, payload=data)
+        mq.publish(payload=data)
+
 #def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:Dict):
-def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
+#def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
+def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_map:Dict):
     """
     Helper function for drawing bounding boxes on image
     Parameters:
@@ -347,14 +356,16 @@ def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
         if not 'NONE' in observed_classes.keys():
             messageBody = '{"class": "NONE", "score": "1", "x1": "0", "y1": "0" }'
             #reset the classes observed previously...
-            print('inferencing diagnostics - ' + str(observed_classes))
+            print('previous inferencing diagnostics - ' + str(observed_classes))
             observed_classes = { 'NONE': 0 }
             # rmqChannel.basic_publish(
             #     exchange='',
             #     routing_key='inferencing_stream',
             #     body=messageBody
             # )
-            mq.do_async(mq.publish, payload=messageBody)
+            #mq.do_async(mq.publish, payload=messageBody)
+            #mq.publish(payload=messageBody)
+            messageQueue.put(messageBody)
             return
         else:
             return
@@ -375,7 +386,9 @@ def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
             #     routing_key='inferencing_stream',
             #     body=messageBody
             # )
-            mq.do_async(mq.publish, payload=messageBody)
+            #mq.do_async(mq.publish, payload=messageBody)
+            #mq.publish(payload=messageBody)
+            messageQueue.put(messageBody)
             observed_classes[object_class] = conf.item()
         
     return
@@ -424,6 +437,11 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     quantized_model_with_preprocess = ppp.build()
     #serialize(quantized_model_with_preprocess, str(f"{DET_MODEL_NAME}_with_preprocess.xml"))
     compiled_model = core.compile_model(quantized_model_with_preprocess, device)
+
+    #start seperate thread for sending to RabbitMQ (pika is not threadsafe so we wrap in a class)
+    q = Queue() 
+    t1 = Thread(target = sender_thread, args =(mq, q))
+    t1.start()
 
     try:
         # Create a video player to play with target fps.
@@ -476,7 +494,7 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
             timings_text=f"Inference time: {processing_time:.1f}ms ({fps:.1f} FPS)"
 
             if publishRMQ:
-                stream_results(mq, detections, input_image, label_map)
+                stream_results(q, detections, input_image, label_map)
                 
             if publishSysout:
                 sysout_results(detections, input_image, label_map, timings_text)
