@@ -357,7 +357,7 @@ def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_ma
     
     if len(boxes) == 0:
         if not 'NONE' in observed_classes.keys():
-            messageBody = '{"class": "NONE", "score": "1", "x1": "0", "y1": "0", "inf_time": {inf_time:.1f}, "fps": {fps:.1f} }'
+            messageBody = '{"class": "NONE", "score": "1", "x1": "0", "y1": "0", "inf_time": "' + str(inf_time) + '", "fps": "' + str(fps) + '" }'
             #reset the classes observed previously...
             print('previous inferencing diagnostics - ' + str(observed_classes))
             observed_classes = { 'NONE': 0 }
@@ -383,7 +383,7 @@ def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_ma
         #if this class was detected previously record the confidence if higher than before, don't publish to RabbitMQ
         if not (object_class in observed_classes.keys() and conf.item() < float(observed_classes[object_class])):
             messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
-                + '", "y1": "' + str(xyxy[1].item()) + '", "inf_time": {inf_time:.1f}, "fps": {fps:.1f} }'
+                + '", "y1": "' + str(xyxy[1].item()) + '", "inf_time": "' + str(inf_time) + '", "fps": "' + str(fps) + '" }'
             # rmqChannel.basic_publish(
             #     exchange='',
             #     routing_key='inferencing_stream',
@@ -392,6 +392,7 @@ def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_ma
             #mq.do_async(mq.publish, payload=messageBody)
             #mq.publish(payload=messageBody)
             messageQueue.put(messageBody)
+        
             observed_classes[object_class] = conf.item()
         
     return
