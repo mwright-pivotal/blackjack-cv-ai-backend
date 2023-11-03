@@ -25,6 +25,7 @@ from openvino.preprocess import PrePostProcessor
 
 global observed_classes
 observed_classes = { }
+_sentinel = object()
 
 def plot_one_box(box:np.ndarray, img:np.ndarray, color:Tuple[int, int, int] = None, mask:np.ndarray = None, label:str = None, line_thickness:int = 5):
     """
@@ -332,12 +333,14 @@ def setup_rabbit():
 def sender_thread(mq, in_q): 
     while True: 
         data = in_q.get() 
+        if data == _sentinel:
+            break
         #mq.do_async(mq.publish, payload=data)
         mq.publish(payload=data)
 
 #def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:Dict):
 #def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
-def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_map:Dict):
+def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_map:Dict, inf_time, fps):
     """
     Helper function for drawing bounding boxes on image
     Parameters:
@@ -354,7 +357,7 @@ def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_ma
     
     if len(boxes) == 0:
         if not 'NONE' in observed_classes.keys():
-            messageBody = '{"class": "NONE", "score": "1", "x1": "0", "y1": "0" }'
+            messageBody = '{"class": "NONE", "score": "1", "x1": "0", "y1": "0", "inf_time": {inf_time:.1f}, "fps": {fps:.1f} }'
             #reset the classes observed previously...
             print('previous inferencing diagnostics - ' + str(observed_classes))
             observed_classes = { 'NONE': 0 }
@@ -380,7 +383,7 @@ def stream_results(messageQueue, results:Dict, source_image:np.ndarray, label_ma
         #if this class was detected previously record the confidence if higher than before, don't publish to RabbitMQ
         if not (object_class in observed_classes.keys() and conf.item() < float(observed_classes[object_class])):
             messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
-                + '", "y1": "' + str(xyxy[1].item()) + '" }'
+                + '", "y1": "' + str(xyxy[1].item()) + '", "inf_time": {inf_time:.1f}, "fps": {fps:.1f} }'
             # rmqChannel.basic_publish(
             #     exchange='',
             #     routing_key='inferencing_stream',
@@ -494,7 +497,7 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
             timings_text=f"Inference time: {processing_time:.1f}ms ({fps:.1f} FPS)"
 
             if publishRMQ:
-                stream_results(q, detections, input_image, label_map)
+                stream_results(q, detections, input_image, label_map, processing_time, fps)
                 
             if publishSysout:
                 sysout_results(detections, input_image, label_map, timings_text)
@@ -502,6 +505,7 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     # ctrl-c
     except KeyboardInterrupt:
         print("Interrupted")
+        q.put(_sentinel)
     # any different error
     except RuntimeError as e:
         print(e)
@@ -509,8 +513,8 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
         if player is not None:
             # Stop capturing.
             player.stop()
-        if use_popup:
-            cv2.destroyAllWindows()
+        if mq is not None:
+            mq.connection.close()
             
 def main():
     run_object_detection(flip=False, use_popup=False)
