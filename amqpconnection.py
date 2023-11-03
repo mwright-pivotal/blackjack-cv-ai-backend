@@ -19,6 +19,7 @@ class AmqpConnection:
     def connect(self, connection_name='blackjack-backend'):
         print('Attempting to connect to', self.hostname)
         params = pika.ConnectionParameters(
+            heartbeat=10,
             host=self.hostname,
             port=self.port,
             virtual_host=self.vhost,
