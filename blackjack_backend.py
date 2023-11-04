@@ -336,7 +336,12 @@ def sender_thread(mq, in_q):
         if data == _sentinel:
             break
         #mq.do_async(mq.publish, payload=data)
-        mq.publish(payload=data)
+        try:
+            mq.publish(payload=data)
+        except (pika.exceptions.StreamLostError, pika.exceptions.AMQPHeartbeatTimeout):
+            print("Network dropped, reconnecting...")
+            mq = setup_rabbit()
+            print("Reconnected")
 
 #def stream_results(rmqChannel, results:Dict, source_image:np.ndarray, label_map:Dict):
 #def stream_results(mq, results:Dict, source_image:np.ndarray, label_map:Dict):
