@@ -1,6 +1,20 @@
 {
   "json_schema_version": "2.0.0",
-  "input_preproc": [],
+  "input_preproc": [
+    {
+      "layer_name": "images",
+      "precision": "FP32",
+      "format": "image",
+      "params": {
+        "resize": "aspect-ratio",
+        "color_space": "RGB",
+          "padding": {
+            "stride_x": 32,
+            "stride_y": 32
+        }
+      }
+    }
+  ],
   "output_postproc": [
     {
       "labels": [

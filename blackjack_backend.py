@@ -8,7 +8,7 @@ import numpy as np
 from PIL import Image
 from ultralytics.utils.plotting import colors
 from ultralytics.utils import ops
-import sys
+import sys, json
 from notebook_utils import download_file, VideoPlayer
 import torch
 from argparse import ArgumentParser, SUPPRESS
@@ -295,12 +295,15 @@ def sysout_results(results:Dict, source_image:np.ndarray, label_map:Dict, msg):
     boxes = results["det"]
     masks = results.get("segment")
     h, w = source_image.shape[:2]
-    for idx, (*xyxy, conf, lbl) in enumerate(boxes):
-        label = f'{label_map[int(lbl)]} {conf:.2f}'
-        object_class = label_map[int(lbl)]
-        messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
-                + '", "y1": "' + str(xyxy[1].item()) + '", "msg": "' + msg + '" }'
-        print(messageBody)
+
+    for idxPred, det in enumerate(boxes):
+        for idx, (*xyxy, conf, lbl) in reversed(det):
+            print('Label nbr: ' + str(lbl))
+            label = f'{label_map[int(lbl)]} {conf:.2f}'
+            object_class = label_map[int(lbl)]
+            messageBody = '{"class": "' + label_map[int(lbl)] + '", "score": "' + str(conf.item()) + '", "x1": "' + str(xyxy[0].item()) \
+                    + '", "y1": "' + str(xyxy[1].item()) + '", "msg": "' + msg + '" }'
+            print(messageBody)
         
     return
 
@@ -419,8 +422,11 @@ def run_object_detection(flip=False, use_popup=False, skip_first_frames=0):
     DET_MODEL_NAME = args.model
     #SEG_MODEL_NAME = "card-segment-08823"
 
-    det_model = YOLO(f'./models/card-detect-0728.pt')
-    label_map = det_model.model.names
+    #det_model = YOLO(f'./models/cards-yolov5.pt')
+    classesJson = '{"0": "10C", "1": "10D", "2": "10H", "3": "10S", "4": "2C", "5": "2D", "6": "2H", "7": "2S", "8": "3C", "9": "3D", "10": "3H", "11": "3S", "12": "4C", "13": "4D", "14": "4H", "15": "4S", "16": "5C", "17": "5D", "18": "5H", "19": "5S", "20": "6C", "21": "6D", "22": "6H", "23": "6S", "24": "7C", "25": "7D", "26": "7H", "27": "7S", "28": "8C", "29": "8D", "30": "8H", "31": "8S", "32": "9C", "33": "9D", "34": "9H", "35": "9S", "36": "AC", "37": "AD", "38": "AH", "39": "AS", "40": "JC", "41": "JD", "42": "JH", "43": "JS", "44": "KC", "45": "KD", "46": "KH", "47": "KS", "48": "QC", "49": "QD", "50": "QH", "51": "QS"}'
+    
+    #label_map = det_model.model.names
+    label_map = json.loads(classesJson)
     print(label_map)
 
     from openvino.runtime import Core, Model

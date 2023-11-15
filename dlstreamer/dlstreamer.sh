@@ -26,7 +26,8 @@ echo "####              #           #           #                               
 ###################################################################################
 #LOCATION=traffic_cam_intel.mp4
 #LOCATION=../cards-sample.m4v
-LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp?videocodec=h264
+#LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp?videocodec=h264
+LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp
 if [[ $LOCATION == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=${LOCATION}"
 elif [[ $LOCATION == *"://"* ]]; then
@@ -36,7 +37,7 @@ else
 fi
 
 ###################################################################################
-DETECTION_MODEL=../models/yolov5_openvino/cards-yolov5.xml
+DETECTION_MODEL=../models/cards-yolov5-ov.xml
 #DETECTION_MODEL=model_intel/person-vehicle-bike-detection-crossroad-0078/FP32/person-vehicle-bike-detection-crossroad-0078.xml
 #DETECTION_MODEL_PROC=model_proc/person-vehicle-bike-detection-crossroad-0078.json
 DETECTION_MODEL_PROC=blackjack-model-proc-v2.json
@@ -54,7 +55,7 @@ SINK_ELEMENT="gvametaconvert ! gvametapublish file-format=json-lines file-path=o
 #SINK_ELEMENT="videoconvert ! gvafpscounter ! fpsdisplaysink video-sink=autovideosink sync=false"
 ###################################################################################
 #PIPELINE="gst-launch-1.0 -vvv filesrc location=${LOCATION} ! decodebin ! gvadetect model=${DETECTION_MODEL} model-proc=${DETECTION_MODEL_PROC} device=${DEVICE} threshold=${THRESHOLD} inference-interval=${INFRENCE_INTERVAL} nireq=4 ! ${TRACK} ! gvawatermark ! ${SINK_ELEMENT}"
-PIPELINE="gst-launch-1.0 -vvv ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! ${SINK_ELEMENT}"
+PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! ${SINK_ELEMENT}"
 #PIPELINE="gst-launch-1.0 -vvv ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! gvaclassify model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! ${SINK_ELEMENT}"
 ###################################################################################
 echo "##############################################################################"
