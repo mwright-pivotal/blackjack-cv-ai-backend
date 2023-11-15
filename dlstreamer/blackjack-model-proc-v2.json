@@ -3,7 +3,6 @@
   "input_preproc": [
     {
       "layer_name": "images",
-      "precision": "FP32",
       "format": "image",
       "params": {
         "resize": "aspect-ratio",
