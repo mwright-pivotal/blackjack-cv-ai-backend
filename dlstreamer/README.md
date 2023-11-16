@@ -1,5 +1,5 @@
 *** Important ***
-If you want to use your own YOLOv5 based model, be sure to examine the layers of the resulting model to determine the proper params when converting to Openvino IR
+If you want to use your own YOLOv5 based model, be sure to examine the layers of the resulting model to determine the proper params when converting to Openvino IR.  More details here: https://dlstreamer.github.io/dev_guide/yolov5_model_preparation.html#model-pre-post-processing
 
 From within a dlstreamer container, convert your model using "mo" util from Intel
 
