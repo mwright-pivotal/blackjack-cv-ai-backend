@@ -1,25 +1,55 @@
 {
-  "json_schema_version": "2.0.0",
+  "json_schema_version": "2.2.0",
   "input_preproc": [
     {
       "layer_name": "images",
       "format": "image",
       "params": {
-        "resize": "aspect-ratio",
-        "color_space": "RGB",
-          "padding": {
-            "stride_x": 32,
-            "stride_y": 32
-        }
+        "resize": "aspect-ratio"
       }
     }
   ],
   "output_postproc": [
     {
+      "classes": 52,
       "labels": [
 	  "10C", "10D", "10H", "10S", "2C", "2D", "2H", "2S", "3C", "3D", "3H", "3S", "4C", "4D", "4H", "4S", "5C", "5D", "5H", "5S", "6C", "6D", "6H", "6S", "7C", "7D", "7H", "7S", "8C", "8D", "8H", "8S", "9C", "9D", "9H", "9S", "AC", "AD", "AH", "AS", "JC", "JD", "JH", "JS", "KC", "KD", "KH", "KS", "QC", "QD", "QH", "QS"
       ],
-      "converter": "boxes_labels"
+      "converter": "yolo_v5",
+      "output_sigmoid_activation": true,
+      "do_cls_softmax": true,
+      "iou_threshold": 0.4,
+      "anchors": [
+        10.0,
+        13.0,
+        16.0,
+        30.0,
+        33.0,
+        23.0,
+        30.0,
+        61.0,
+        62.0,
+        45.0,
+        59.0,
+        119.0,
+        116.0,
+        90.0,
+        156.0,
+        198.0,
+        373.0,
+        326.0
+      ],
+      "masks": [
+          6,
+          7,
+          8,
+          3,
+          4,
+          5,
+          0,
+          1,
+          2
+      ]
     }
   ]
 }

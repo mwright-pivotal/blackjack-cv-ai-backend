@@ -26,8 +26,8 @@ echo "####              #           #           #                               
 ###################################################################################
 #LOCATION=traffic_cam_intel.mp4
 #LOCATION=../cards-sample.m4v
-#LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp?videocodec=h264
-LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp
+LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp?videocodec=h264
+#LOCATION=rtsp://${CAM_USER}:${CAM_PASSWORD}@192.168.0.33/axis-media/media.amp
 if [[ $LOCATION == "/dev/video"* ]]; then
   SOURCE_ELEMENT="v4l2src device=${LOCATION}"
 elif [[ $LOCATION == *"://"* ]]; then
@@ -45,18 +45,19 @@ DETECTION_MODEL_PROC=blackjack-model-proc-v2.json
 TRACK="queue2 ! gvatrack tracking-type=short-term-imageless ! queue2"
 ###################################################################################
 DEVICE=GPU
-THRESHOLD=0.75
+THRESHOLD=0.40
 INFRENCE_INTERVAL=1
+GST_DEBUG="2,gvadetect*:6"
 ###################################################################################
 #SINK_ELEMENT="videoconvert ! gvafpscounter ! fpsdisplaysink video-sink=xvimagesink sync=false"
 #SINK_ELEMENT="videoconvert ! gvafpscounter ! fakesink"
 #SINK_ELEMENT="videoconvert ! gvafpscounter ! gvametaconvert format=dump-detection"
-SINK_ELEMENT="gvametaconvert ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false "
+SINK_ELEMENT="gvametaconvert tags='{"edge": "true"}' ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false "
 #SINK_ELEMENT="videoconvert ! gvafpscounter ! fpsdisplaysink video-sink=autovideosink sync=false"
 ###################################################################################
 #PIPELINE="gst-launch-1.0 -vvv filesrc location=${LOCATION} ! decodebin ! gvadetect model=${DETECTION_MODEL} model-proc=${DETECTION_MODEL_PROC} device=${DEVICE} threshold=${THRESHOLD} inference-interval=${INFRENCE_INTERVAL} nireq=4 ! ${TRACK} ! gvawatermark ! ${SINK_ELEMENT}"
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! ${SINK_ELEMENT}"
-#PIPELINE="gst-launch-1.0 -vvv ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! gvaclassify model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! ${SINK_ELEMENT}"
+#PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! gvaclassify model=${DETECTION_MODEL} model-proc=${DETECTION_MODEL_PROC} device=$DEVICE ! queue ! ${SINK_ELEMENT}"
 ###################################################################################
 echo "##############################################################################"
 echo "PLAYING CARD DETECTION"
