@@ -11,7 +11,7 @@ done
 
 ##################################################################################
 ##################################################################################
-source /opt/intel/openvino_2021/bin/setupvars.sh 
+source /opt/intel/openvino_2023/setupvars.sh 
 ##################################################################################
 echo "##############################################################################"
 echo "# Path to Me --------------->  ${PWD}     "
@@ -48,12 +48,10 @@ DEVICE=GPU
 THRESHOLD=0.40
 INFRENCE_INTERVAL=1
 GST_DEBUG="2,gvadetect*:6"
+MQTT_ADDRESS=192.168.0.5:1883
 ###################################################################################
-#SINK_ELEMENT="videoconvert ! gvafpscounter ! fpsdisplaysink video-sink=xvimagesink sync=false"
-#SINK_ELEMENT="videoconvert ! gvafpscounter ! fakesink"
-#SINK_ELEMENT="videoconvert ! gvafpscounter ! gvametaconvert format=dump-detection"
-SINK_ELEMENT="gvametaconvert tags='{"edge": "true"}' ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false "
-#SINK_ELEMENT="videoconvert ! gvafpscounter ! fpsdisplaysink video-sink=autovideosink sync=false"
+#SINK_ELEMENT="gvametaconvert tags=camera1 ! gvametapublish file-format=json-lines file-path=output.json ! fakesink async=false "
+SINK_ELEMENT="gvametaconvert json-indent=4 tags='{\"edge\": \"true\"}' ! queue ! gvametapublish method=mqtt mqtt-client-id=blackjack max-connect-attempts=10 address=${MQTT_ADDRESS} topic=t/1 ! fakesink async=false  "
 ###################################################################################
 #PIPELINE="gst-launch-1.0 -vvv filesrc location=${LOCATION} ! decodebin ! gvadetect model=${DETECTION_MODEL} model-proc=${DETECTION_MODEL_PROC} device=${DEVICE} threshold=${THRESHOLD} inference-interval=${INFRENCE_INTERVAL} nireq=4 ! ${TRACK} ! gvawatermark ! ${SINK_ELEMENT}"
 PIPELINE="gst-launch-1.0 ${SOURCE_ELEMENT} ! decodebin ! gvadetect model=${DETECTION_MODEL} model_proc=${DETECTION_MODEL_PROC} device=${DEVICE} ! queue ! ${SINK_ELEMENT}"

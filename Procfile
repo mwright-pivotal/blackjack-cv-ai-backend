@@ -1,1 +1,1 @@
-web: python3 blackjack_backend.py -d ${ACCELERATION_DEVICE} -i ${VIDEO_INPUT} -m ${INFERENCING_MODEL} --publish_rmq
+web: python3 wallaroo_detection.py -u ${INFERENCE_URL} -i ${VIDEO_INPUT} -c yolov8 --loop
