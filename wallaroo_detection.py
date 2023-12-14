@@ -86,13 +86,12 @@ async def frame_processors(worker_id, conn, queue, write_queue):
     """ Pulls images from the queue, sends the frame to Wallaroo for inference, and then
         processes the results. Create multiple workers to keep multiple submissions in the
         inference queue at once to improve throughput."""
-    print(f"Worker {worker_id} starting")
+    print(f"Worker {worker_id}: starting")
     params = wallaroo.get_dataset_params(dataset=["out", "time", "metadata"])
     while True:
         # print(f"Worker {worker_id} waiting")
         idx, frame = await queue.get()
         if frame is None:
-            print(f"Worker {worker_id}: done")
             queue.task_done()
             break
 
@@ -121,6 +120,7 @@ async def frame_processors(worker_id, conn, queue, write_queue):
 
         # Notify the queue that the "work item" has been processed.
         queue.task_done()
+    print(f"Worker {worker_id}: done")
 
 
 async def frame_writer(dest, queue, video_writer):
@@ -134,14 +134,12 @@ async def frame_writer(dest, queue, video_writer):
             del out_of_order_queue[next_frame_id]
             next_frame_id += 1
         else:
-            # print("Writer waiting...")
+            # print("frame_writer: waiting...")
             results = await queue.get()
             if not results:
-                print("Writer got finish signal")
                 queue.task_done()
                 break
         idx, frame, results = results
-        # print(f"Writer: received frame {idx}")
 
         if idx > next_frame_id:
             out_of_order_queue[idx] = (idx, frame, results)
@@ -154,7 +152,6 @@ async def frame_writer(dest, queue, video_writer):
             objects, frame = render_yolo(results, frame)
 
         # Writing image to file
-        print(f"Writer: writing frame {idx}, {objects} boxes")
         if video_writer.isOpened():
             video_writer.write(frame)
 
@@ -162,7 +159,7 @@ async def frame_writer(dest, queue, video_writer):
         #     cv2.imwrite(f"img-{idx}.png", frame)
         queue.task_done()
         next_frame_id += 1
-    print("frame_writer done")
+    print("frame_writer: done")
 
 def render_yolo(results, frame):
     """ Renders the detected objects into the frame based on results from a Yolo-style model
@@ -170,7 +167,11 @@ def render_yolo(results, frame):
         Returns the number of object detected"""
 
     combined = results[MODEL_CONFIG["combined"]][0]
-    arr = np.array(combined.as_py()).reshape((84, 8400))
+
+    # Reshape based on 8400 possible detections, but tbe number of categories will vary
+    arr = np.array(combined.as_py())
+    arr = arr.reshape((int(arr.shape[0]/8400), 8400))
+
     objects = 0
     for i in range(8400):
         row = arr[:, i]
@@ -246,7 +247,7 @@ async def main():
     # Max number of frames to keep in memory. We want enough that we can keep the inference server busy
     WORKER_COUNT = 2
     conn = wallaroo.connect(args.url)
-    work_queue = asyncio.Queue(WORKER_COUNT*6)
+    work_queue = asyncio.Queue(WORKER_COUNT*2)
     write_queue = asyncio.Queue()
     workers = [asyncio.create_task(frame_processors(i, conn, work_queue, write_queue)) for i in range(WORKER_COUNT)]
     workers.append(asyncio.create_task(frame_writer(args.output, write_queue, video_writer)))
@@ -265,7 +266,7 @@ async def main():
         img = img.resize(resize_shape)
         # img.save(f"test-{next_frame_id}.jpg")
         frame = np.array(img)
-        print(f"That's cap: {next_frame_id} {frame.shape}")
+        print(f"Input frame: {next_frame_id} {frame.shape}")
         await work_queue.put((next_frame_id, frame))
 
         next_frame_id += 1
